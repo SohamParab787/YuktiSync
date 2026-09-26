@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -19,38 +20,44 @@ class InviteStatus(str, Enum):
 class CaregiverPatientLink(BaseModel):
     id: str = Field(..., description="Unique link identifier")
     patient_id: str = Field(..., description="ID of the patient")
-    caregiver_id: Optional[str] = Field(default=None, description="ID of the caregiver account once accepted")
+    caregiver_id: Optional[str] = Field(default=None, description="Caregiver account ID once accepted")
     caregiver_email: str = Field(..., description="Email address the invite was sent to")
-    caregiver_name: Optional[str] = Field(default=None, description="Caregiver display name")
-    patient_name: Optional[str] = Field(default=None, description="Patient display name")
-    permissions: CaregiverPermission = Field(
-        default=CaregiverPermission.READ_ONLY, 
-        description="Caregiver access level: read_only or read_respond"
-    )
-    status: InviteStatus = Field(default=InviteStatus.PENDING, description="Status of the invitation")
-    invite_token: Optional[str] = Field(default=None, description="Secure time-limited invite token")
-    invite_expires_at: Optional[datetime] = Field(default=None, description="Token expiration timestamp")
+    caregiver_name: Optional[str] = None
+    patient_name: Optional[str] = None
+    permissions: CaregiverPermission = CaregiverPermission.READ_ONLY
+    status: InviteStatus = InviteStatus.PENDING
+    invite_token: Optional[str] = None
+    invite_expires_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CaregiverNote(BaseModel):
-    id: str = Field(..., description="Unique note identifier")
-    patient_id: str = Field(..., description="Patient ID this note pertains to")
-    author_id: str = Field(..., description="User ID of the note author")
-    author_name: str = Field(..., description="Display name of the author")
-    author_role: str = Field(..., description="Role of the author: caregiver or patient")
-    content: str = Field(..., description="Content of the shared note")
+    id: str
+    patient_id: str
+    author_id: str
+    author_name: str
+    author_role: str
+    content: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CaregiverAlert(BaseModel):
-    id: str = Field(..., description="Unique alert identifier")
-    patient_id: str = Field(..., description="Target patient ID")
-    medication_name: str = Field(..., description="Medication name if relevant")
-    alert_type: str = Field(default="missed_dose", description="Alert category: missed_dose, escalation, etc.")
-    severity: str = Field(default="medium", description="Severity: low, medium, high, critical")
-    message: str = Field(..., description="User-friendly alert message")
-    scheduled_time: Optional[datetime] = Field(default=None, description="When dose was missed")
-    is_resolved: bool = Field(default=False)
+    id: str
+    patient_id: str
+    medication_name: str
+    alert_type: str = "missed_dose"
+    severity: str = "medium"
+    message: str
+    scheduled_time: Optional[datetime] = None
+    is_resolved: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Caregiver(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    phone: Optional[str] = None
+    email: str
+    status: str = "active"

@@ -52,7 +52,10 @@ async def answer_medication_query(
 
     # 1. Retrieve Active Patient Medications
     active_meds = db.medications.get(patient_id, [])
-    active_med_names = [m.get("name") for m in active_meds if m.get("name")]
+    active_med_names = [
+        name for medication in active_meds
+        if (name := medication.get("name") if isinstance(medication, dict) else getattr(medication, "name", None))
+    ]
     if not active_med_names:
         active_med_names = ["Metformin", "Lisinopril", "Atorvastatin"]
 

@@ -1,7 +1,11 @@
 import logging
+import threading
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import uuid
+
+from backend.shared.models.dose_log import DoseLog
+from backend.shared.models.medication import Medication
 
 logger = logging.getLogger(__name__)
 
@@ -9,13 +13,18 @@ logger = logging.getLogger(__name__)
 # In-memory database store with dynamic Prescription -> Medication -> Schedule linkage
 class InMemoryDB:
     def __init__(self, seed_demo: bool = False):
+        self._lock = threading.RLock()
         self.users: Dict[str, Dict[str, Any]] = {}
         self.caregiver_links: Dict[str, Dict[str, Any]] = {}
         self.caregiver_notes: List[Dict[str, Any]] = []
         self.prescriptions: Dict[str, List[Dict[str, Any]]] = {}
-        self.medications: Dict[str, List[Dict[str, Any]]] = {}
-        self.dose_logs: Dict[str, List[Dict[str, Any]]] = {}
+        self.medications: Dict[str, List[Any]] = {}
+        self.dose_logs: Dict[str, List[Any]] = {}
         self.alerts: List[Dict[str, Any]] = []
+        self.caregivers: Dict[str, Dict[str, Any]] = {}
+        self.risk_alerts: Dict[str, Dict[str, Any]] = {}
+        self.escalation_logs: List[Dict[str, Any]] = []
+        self.activity_logs: List[Dict[str, Any]] = []
 
         if seed_demo:
             self.seed_demo_data()
@@ -206,11 +215,188 @@ class InMemoryDB:
         if alerts:
             self.alerts.extend(alerts)
 
-    def update_dose_status(self, patient_id: str, dose_id: str, new_status: str) -> Optional[Dict[str, Any]]:
+    def save_medication(self, medication: Medication) -> Medication:
+        owner_id = medication.user_id or medication.patient_id
+        if not owner_id:
+            raise ValueError("Medication must have a patient_id or user_id")
+        with self._lock:
+            medications = self.medications.setdefault(owner_id, [])
+            for index, existing in enumerate(medications):
+                if getattr(existing, "id", None) == medication.id:
+                    medications[index] = medication
+                    break
+            else:
+                medications.append(medication)
+        return medication
+
+    def get_medication(self, medication_id: str) -> Optional[Medication]:
+        with self._lock:
+            return next(
+                (medication for medications in self.medications.values()
+                 for medication in medications
+                 if getattr(medication, "id", None) == medication_id),
+                None,
+            )
+
+    def get_medications_by_user(self, user_id: str) -> List[Medication]:
+        with self._lock:
+            return [
+                medication for medication in self.medications.get(user_id, [])
+                if isinstance(medication, Medication)
+            ]
+
+    def save_dose_log(self, dose_log: DoseLog) -> DoseLog:
+        owner_id = dose_log.user_id or dose_log.patient_id
+        if not owner_id:
+            raise ValueError("Dose log must have a patient_id or user_id")
+        with self._lock:
+            dose_logs = self.dose_logs.setdefault(owner_id, [])
+            for index, existing in enumerate(dose_logs):
+                if getattr(existing, "id", None) == dose_log.id:
+                    dose_logs[index] = dose_log
+                    break
+            else:
+                dose_logs.append(dose_log)
+        return dose_log
+
+    def get_dose_log(self, dose_id: str) -> Optional[DoseLog]:
+        with self._lock:
+            return next(
+                (dose for doses in self.dose_logs.values()
+                 for dose in doses
+                 if getattr(dose, "id", None) == dose_id),
+                None,
+            )
+
+    def get_dose_logs_by_user(self, user_id: str) -> List[DoseLog]:
+        with self._lock:
+            dose_logs = self.dose_logs.get(user_id, [])
+            for index, dose in enumerate(dose_logs):
+                if isinstance(dose, dict):
+                    dose_logs[index] = DoseLog(
+                        id=str(dose.get("id", f"dose-{uuid.uuid4().hex[:8]}")),
+                        patient_id=dose.get("patient_id", user_id),
+                        medication_id=dose.get("medication_id"),
+                        medication_name=dose.get("medication_name", "Medication"),
+                        dosage=dose.get("dosage", "1 dose"),
+                        user_id=dose.get("user_id", user_id),
+                        scheduled_time=str(dose.get("scheduled_time", "")),
+                        status=dose.get("status", "upcoming"),
+                        taken_time=dose.get("taken_time"),
+                        taken_at=dose.get("taken_at"),
+                        food_instruction=dose.get("food_instruction"),
+                        notes=dose.get("notes"),
+                        instructions=dose.get("instructions"),
+                        grace_period_minutes=dose.get("grace_period_minutes", 60),
+                        created_at=dose.get("created_at", datetime.now(timezone.utc)),
+                    )
+            return [dose for dose in dose_logs if isinstance(dose, DoseLog)]
+
+    def get_all_dose_logs(self) -> List[DoseLog]:
+        with self._lock:
+            user_ids = list(self.dose_logs)
+        return [dose for user_id in user_ids for dose in self.get_dose_logs_by_user(user_id)]
+
+    def update_dose_log(self, dose_log: DoseLog) -> DoseLog:
+        self.save_dose_log(dose_log)
+        return dose_log
+
+    def record_activity(
+        self,
+        user_id: str,
+        dose_id: str,
+        medication_name: str,
+        action: str,
+        details: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        with self._lock:
+            activity = {
+                "id": f"act-{uuid.uuid4().hex[:8]}",
+                "user_id": user_id,
+                "dose_id": dose_id,
+                "medication_name": medication_name,
+                "action": action,
+                "details": details,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self.activity_logs.insert(0, activity)
+            return activity
+
+    def get_activities(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            return [item for item in self.activity_logs if item.get("user_id") == user_id][:limit]
+
+    def record_escalation(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            self.escalation_logs.insert(0, event)
+            severity = {
+                "INFO": "medium",
+                "WARNING": "high",
+                "CRITICAL": "critical",
+            }.get(str(event.get("alert_level", "")).upper(), "medium")
+            self.alerts.insert(0, {
+                "id": event.get("id", f"alert-{uuid.uuid4().hex[:8]}"),
+                "patient_id": event.get("user_id"),
+                "medication_name": ", ".join(event.get("medications", [])) or "Prescription",
+                "alert_type": "missed_dose",
+                "severity": severity,
+                "message": event.get("message", "Medication schedule escalation"),
+                "scheduled_time": event.get("timestamp"),
+                "is_resolved": False,
+                "created_at": event.get("timestamp", datetime.now(timezone.utc)),
+            })
+            return event
+
+    def get_escalations(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            return [event for event in self.escalation_logs if event.get("user_id") == user_id][:limit]
+
+    def clear(self):
+        with self._lock:
+            self.users.clear()
+            self.caregiver_links.clear()
+            self.caregiver_notes.clear()
+            self.prescriptions.clear()
+            self.medications.clear()
+            self.dose_logs.clear()
+            self.alerts.clear()
+            self.caregivers.clear()
+            self.risk_alerts.clear()
+            self.escalation_logs.clear()
+            self.activity_logs.clear()
+
+    def update_dose_status(self, patient_id: str, dose_id: str, new_status: str) -> Optional[Any]:
         """Log dose as taken or missed, updating adherence and alerts in real-time"""
         logs = self.dose_logs.get(patient_id, [])
         for log in logs:
-            if log.get("id") == dose_id:
+            if getattr(log, "id", None) == dose_id or (isinstance(log, dict) and log.get("id") == dose_id):
+                if isinstance(log, DoseLog):
+                    log.status = new_status
+                    if new_status == "taken":
+                        log.taken_time = datetime.now(timezone.utc).strftime("%I:%M %p")
+                    elif new_status == "missed":
+                        log.taken_time = None
+                    if new_status == "taken":
+                        self.alerts = [
+                            alert for alert in self.alerts
+                            if not (
+                                alert.get("patient_id") == patient_id
+                                and alert.get("medication_name") == log.medication_name
+                            )
+                        ]
+                    elif new_status == "missed":
+                        self.alerts.append({
+                            "id": f"alert-{uuid.uuid4().hex[:6]}",
+                            "patient_id": patient_id,
+                            "medication_name": log.medication_name,
+                            "alert_type": "missed_dose",
+                            "severity": "high",
+                            "message": f"Escalation Alert: Missed scheduled dose of {log.medication_name} ({log.dosage}).",
+                            "scheduled_time": datetime.now(timezone.utc),
+                            "is_resolved": False,
+                            "created_at": datetime.now(timezone.utc),
+                        })
+                    return log
                 log["status"] = new_status
                 if new_status == "taken":
                     log["taken_time"] = datetime.now(timezone.utc).strftime("%I:%M %p")
@@ -248,6 +434,6 @@ class InMemoryDB:
 db = InMemoryDB(seed_demo=False)
 
 
-def get_db():
+def get_db() -> InMemoryDB:
     """Dependency or accessor for shared DB instance"""
     return db

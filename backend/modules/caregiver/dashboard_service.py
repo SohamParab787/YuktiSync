@@ -90,7 +90,8 @@ async def get_dashboard(patient_id: str, requester_id: str) -> DashboardResponse
             status=d.get("status", "upcoming"),
             notes=d.get("notes"),
         )
-        for idx, d in enumerate(upcoming_raw)
+        for idx, dose in enumerate(upcoming_raw)
+        for d in [dose.model_dump() if hasattr(dose, "model_dump") else dose]
     ]
 
     # 5. Pull active missed-dose alerts & escalations from Person 2's escalation_service

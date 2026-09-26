@@ -2,6 +2,7 @@ from .user import User, UserRole
 from .medication import Medication
 from .dose_log import DoseLog, DoseStatus
 from .caregiver import (
+    Caregiver,
     CaregiverPermission,
     InviteStatus,
     CaregiverPatientLink,
@@ -15,6 +16,7 @@ __all__ = [
     "Medication",
     "DoseLog",
     "DoseStatus",
+    "Caregiver",
     "CaregiverPermission",
     "InviteStatus",
     "CaregiverPatientLink",
