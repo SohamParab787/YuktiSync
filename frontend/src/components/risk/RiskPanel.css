@@ -1,0 +1,214 @@
+/* frontend/src/components/risk/RiskPanel.css
+
+Design intent:
+- A calm, clinical palette (cool greys, deep teal for "safe", muted red/amber
+  for critical/warning) rather than generic SaaS blue-and-rounded-cards.
+- A monospace face for data points (drug names, severity, timestamps) paired
+  with a plain humanist sans for body text — mirrors how lab/clinical
+  reports separate "data" from "explanation" typographically.
+- Flat panels with a 1px border, no drop shadows; severity is communicated
+  by a small colored dot + badge, not by coloring the whole card.
+*/
+
+:root {
+  --risk-bg: #f5f6f8;
+  --risk-surface: #ffffff;
+  --risk-border: #e1e5ea;
+  --risk-text: #1c2733;
+  --risk-text-muted: #5b6b7a;
+  --risk-accent: #1d6f5c;
+  --risk-accent-hover: #175c4c;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.risk-panel {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 32px 28px;
+  background: var(--risk-bg);
+  border: 1px solid var(--risk-border);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  color: var(--risk-text);
+}
+
+.risk-header {
+  margin-bottom: 20px;
+}
+
+.risk-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.risk-subtitle {
+  font-size: 14px;
+  color: var(--risk-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.risk-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--risk-border);
+  margin-bottom: 20px;
+}
+
+.risk-tab {
+  background: none;
+  border: none;
+  padding: 10px 4px;
+  margin-right: 20px;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  color: var(--risk-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.risk-tab:hover {
+  color: var(--risk-text);
+}
+
+.risk-tab-active {
+  color: var(--risk-text);
+  border-bottom: 2px solid var(--risk-accent);
+  font-weight: 600;
+}
+
+.risk-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.risk-label {
+  font-size: 13px;
+  color: var(--risk-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.risk-optional {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.risk-input {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--risk-text);
+  background: var(--risk-surface);
+  border: 1px solid var(--risk-border);
+  border-radius: 4px;
+  padding: 9px 10px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.risk-input:focus {
+  border-color: var(--risk-accent);
+}
+
+.risk-button {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: var(--risk-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.risk-button:hover:not(:disabled) {
+  background: var(--risk-accent-hover);
+}
+
+.risk-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.risk-error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: #fbeceb;
+  border: 1px solid #e3b3af;
+  color: #8a251e;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.risk-result {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.risk-summary {
+  font-size: 14px;
+  color: var(--risk-text);
+  margin: 0 0 4px 0;
+  line-height: 1.5;
+}
+
+.risk-empty {
+  font-size: 13px;
+  color: var(--risk-text-muted);
+}
+
+.risk-card {
+  background: var(--risk-surface);
+  border: 1px solid var(--risk-border);
+  border-left: 3px solid var(--risk-accent);
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+
+.risk-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.risk-card-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--risk-text);
+}
+
+.risk-hazard {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--risk-text);
+}
+
+.risk-explanation {
+  font-size: 13px;
+  color: var(--risk-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.risk-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--risk-text-muted);
+  margin: 6px 0 0 0;
+}
