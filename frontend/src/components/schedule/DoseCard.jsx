@@ -5,6 +5,7 @@ export const DoseCard = ({
   isNextDose = false,
   secondsRemaining = 0,
   onMarkStatus,
+  onCheckSafety,
   disabled = false
 }) => {
   const [countdown, setCountdown] = useState(secondsRemaining);
@@ -42,49 +43,65 @@ export const DoseCard = ({
     }
   };
 
-  const currentStatus = (dose?.status || 'upcoming').toLowerCase();
+  const currentStatus = (dose?.status || 'pending').toLowerCase();
 
   const getStatusBadge = (statusStr) => {
     switch (statusStr) {
       case 'taken':
         return (
           <span
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200"
             role="status"
             aria-label="Status: Taken"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
             ✓ Taken
           </span>
         );
       case 'missed':
         return (
           <span
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200"
             role="status"
             aria-label="Status: Missed"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
             ✕ Missed
+          </span>
+        );
+      case 'skipped':
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+            role="status"
+            aria-label="Status: Skipped"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+            ⊘ Skipped
           </span>
         );
       case 'delayed':
         return (
           <span
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200"
             role="status"
             aria-label="Status: Delayed"
           >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
             ⏰ Delayed
           </span>
         );
       case 'upcoming':
+      case 'pending':
       default:
         return (
           <span
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
             role="status"
-            aria-label="Status: Upcoming"
+            aria-label="Status: Pending"
           >
-            ⌛ Upcoming
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            ⌛ Pending
           </span>
         );
     }
@@ -96,69 +113,73 @@ export const DoseCard = ({
 
   return (
     <div
-      className={`rounded-xl border p-4 transition-all shadow-sm ${
+      className={`rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
         isNextDose
-          ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-200'
-          : 'border-slate-200 bg-white hover:border-slate-300'
+          ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-200 shadow-emerald-50'
+          : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow'
       }`}
       role="article"
       aria-label={`Medication dose: ${dose?.medication_name}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-bold text-slate-900 text-lg">{dose?.medication_name}</h4>
-            <span className="text-sm font-medium text-slate-500">({dose?.dosage})</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Left Side: Medicine details */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+              {formattedTime}
+            </span>
+            <h4 className="font-bold text-slate-900 text-base sm:text-lg">
+              {dose?.medication_name}
+            </h4>
+            <span className="text-xs font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+              {dose?.dosage}
+            </span>
             {getStatusBadge(currentStatus)}
             {isNextDose && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">
-                Next Scheduled Dose
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-xs">
+                Next Dose
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-slate-600">
-            <span>Scheduled: <strong>{formattedTime}</strong></span>
+          <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-600 flex-wrap">
+            {/* Food Instruction Badge */}
+            {dose?.food_instruction && (
+              <span className="inline-flex items-center gap-1 font-medium text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100">
+                🍽️ {dose.food_instruction}
+              </span>
+            )}
+            
             {isNextDose && (
-              <span className="font-mono text-blue-700 font-semibold">
+              <span className="font-mono text-emerald-700 font-semibold bg-emerald-100/60 px-2.5 py-0.5 rounded">
                 ⏳ {formatCountdown(countdown)}
               </span>
             )}
           </div>
 
           {dose?.instructions && (
-            <p className="text-xs text-slate-500 italic mt-1">
+            <p className="text-xs text-slate-500 italic">
               💡 {dose.instructions}
             </p>
           )}
 
           {dose?.taken_at && (
-            <p className="text-xs text-green-700 mt-1">
-              Recorded at: {new Date(dose.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <p className="text-xs text-emerald-700 font-medium">
+              ✓ Taken at {new Date(dose.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+        {/* Right Side: Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {currentStatus !== 'taken' && (
             <button
               onClick={() => handleAction('taken')}
               disabled={disabled || loadingStatus}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 transition-colors shadow-xs"
               aria-label={`Mark ${dose?.medication_name} as taken`}
             >
-              {loadingStatus ? 'Saving...' : 'Mark Taken'}
-            </button>
-          )}
-
-          {currentStatus !== 'missed' && (
-            <button
-              onClick={() => handleAction('missed')}
-              disabled={disabled || loadingStatus}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 transition-colors"
-              aria-label={`Mark ${dose?.medication_name} as missed`}
-            >
-              {loadingStatus ? 'Saving...' : 'Mark Missed'}
+              {loadingStatus ? 'Updating...' : '✓ Mark as Taken'}
             </button>
           )}
 
@@ -166,10 +187,31 @@ export const DoseCard = ({
             <button
               onClick={() => handleAction('delayed')}
               disabled={disabled || loadingStatus}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors"
               aria-label={`Mark ${dose?.medication_name} as delayed`}
             >
-              {loadingStatus ? 'Saving...' : 'Mark Delayed'}
+              Delayed
+            </button>
+          )}
+
+          {currentStatus !== 'missed' && currentStatus !== 'skipped' && currentStatus !== 'taken' && (
+            <button
+              onClick={() => handleAction('skipped')}
+              disabled={disabled || loadingStatus}
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+              aria-label={`Skip ${dose?.medication_name}`}
+            >
+              Skip
+            </button>
+          )}
+
+          {onCheckSafety && (currentStatus === 'missed' || currentStatus === 'delayed' || currentStatus === 'pending') && (
+            <button
+              onClick={() => onCheckSafety(dose)}
+              className="px-2.5 py-2 rounded-xl text-xs font-medium text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition-colors"
+              title="Check dose safety / anti-stacking"
+            >
+              🛡️ Safety
             </button>
           )}
         </div>
@@ -177,3 +219,5 @@ export const DoseCard = ({
     </div>
   );
 };
+
+export default DoseCard;

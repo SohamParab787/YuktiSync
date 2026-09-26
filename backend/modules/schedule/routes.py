@@ -8,7 +8,9 @@ from backend.modules.schedule.schemas import (
     MarkDoseRequest, MarkDoseResponse,
     AdherenceSummaryResponse, DashboardResponse,
     ScheduleTimelineResponse, EscalationResponse, EscalationRequest,
-    DoseLogSchema, NextDoseInfo, MissedDoseAlert, RiskAlertSchema
+    DoseLogSchema, NextDoseInfo, MissedDoseAlert, RiskAlertSchema,
+    AntiStackingCheckRequest, AntiStackingCheckResponse,
+    ActivityLogSchema, EscalationRecordSchema
 )
 from backend.modules.schedule.generator_service import GeneratorService
 from backend.modules.schedule.adherence_service import AdherenceService
@@ -22,6 +24,15 @@ generator_service = GeneratorService()
 adherence_service = AdherenceService()
 reminder_service = ReminderService()
 escalation_service = EscalationService()
+
+def get_time_greeting() -> str:
+    hour = datetime.now().hour
+    if hour < 12:
+        return "Good Morning"
+    elif hour < 17:
+        return "Good Afternoon"
+    else:
+        return "Good Evening"
 
 async def fetch_risk_data_from_api(user_id: str, base_url: str = "http://localhost:8000") -> List[Dict[str, Any]]:
     """
@@ -50,7 +61,7 @@ async def fetch_risk_data_from_api(user_id: str, base_url: str = "http://localho
 @router.post("/generate", response_model=ScheduleGenerateResponse)
 async def generate_schedule(req: ScheduleGenerateRequest):
     """
-    Generate schedule timetable from prescription data for a user.
+    Generate schedule timetable from prescription data for a user with food instructions.
     """
     try:
         result = await generator_service.generate_schedule(
@@ -70,9 +81,9 @@ async def get_dashboard(
     base_url: str = Query("http://localhost:8000", description="Backend Base URL for HTTP inter-module calls")
 ):
     """
-    Patient Dashboard Endpoint:
+    Patient Dashboard Endpoint for YuktiSync:
     Returns today's doses, next scheduled dose, adherence summary, missed dose alerts,
-    and risk alerts (consumed from Person 3's /api/risk/* endpoint).
+    risk alerts, greeting, anti-stacking safety recommendation, and recent medication activities.
     """
     # 1. Auto-transition missed doses on read
     adherence_service.auto_transition_missed_doses(user_id=user_id)
@@ -81,7 +92,7 @@ async def get_dashboard(
     today_str = date.today().isoformat()
     all_user_doses = get_db().get_dose_logs_by_user(user_id)
     
-    # If user has no doses at all, generate a initial default schedule for user
+    # If user has no doses at all, generate an initial default schedule for user
     if not all_user_doses:
         await generator_service.generate_schedule(user_id=user_id, start_date_str=today_str)
         all_user_doses = get_db().get_dose_logs_by_user(user_id)
@@ -92,7 +103,7 @@ async def get_dashboard(
     # 3. Identify Next Scheduled Dose
     now = datetime.now()
     now_iso = now.isoformat()
-    upcoming_doses = [d for d in todays_doses if d.status == "upcoming" and d.scheduled_time >= now_iso]
+    upcoming_doses = [d for d in todays_doses if d.status in ["pending", "upcoming"] and d.scheduled_time >= now_iso]
     
     next_dose_info = None
     if upcoming_doses:
@@ -107,6 +118,7 @@ async def get_dashboard(
                 dosage=next_d.dosage,
                 scheduled_time=next_d.scheduled_time,
                 seconds_remaining=secs_remaining,
+                food_instruction=next_d.food_instruction,
                 instructions=next_d.instructions
             )
         except ValueError:
@@ -117,7 +129,7 @@ async def get_dashboard(
     adherence_summary = AdherenceSummaryResponse(**adherence_data)
 
     # 5. Missed Dose Alerts
-    missed_doses = [d for d in todays_doses if d.status == "missed"]
+    missed_doses = [d for d in todays_doses if d.status in ["missed", "skipped"]]
     missed_alerts = [
         MissedDoseAlert(
             dose_id=d.id,
@@ -153,15 +165,40 @@ async def get_dashboard(
         "message": esc_status_raw.get("message", "")
     }
 
+    # 8. Anti-Stacking Safety Advice
+    anti_stacking_data = None
+    if next_dose_info:
+        anti_stacking_data = adherence_service.evaluate_anti_stacking(
+            user_id=user_id,
+            dose_id=next_dose_info.dose_id,
+            medication_name=next_dose_info.medication_name
+        )
+    elif missed_doses:
+        anti_stacking_data = adherence_service.evaluate_anti_stacking(
+            user_id=user_id,
+            dose_id=missed_doses[0].id,
+            medication_name=missed_doses[0].medication_name
+        )
+    else:
+        anti_stacking_data = adherence_service.evaluate_anti_stacking(user_id=user_id)
+
+    # 9. Recent activities
+    recent_activities = [
+        ActivityLogSchema(**act) for act in get_db().get_activities(user_id, limit=5)
+    ]
+
     return DashboardResponse(
         user_id=user_id,
         date=today_str,
+        greeting=get_time_greeting(),
         todays_doses=[DoseLogSchema(**d.model_dump()) for d in todays_doses],
         next_dose=next_dose_info,
         adherence_summary=adherence_summary,
         missed_alerts=missed_alerts,
         risk_alerts=parsed_risk_alerts,
-        escalation_status=esc_status
+        escalation_status=esc_status,
+        anti_stacking_advice=AntiStackingCheckResponse(**anti_stacking_data) if anti_stacking_data else None,
+        recent_activities=recent_activities
     )
 
 @router.get("/today", response_model=List[DoseLogSchema])
@@ -244,7 +281,7 @@ async def get_adherence(
 @router.post("/dose/{dose_id}/mark", response_model=MarkDoseResponse)
 async def mark_dose(dose_id: str, req: MarkDoseRequest):
     """
-    Quick action endpoint to log status (taken/missed/delayed) for a dose.
+    Quick action endpoint to log status (taken/missed/delayed/skipped) for a dose.
     """
     try:
         updated_dose = adherence_service.log_dose_status(
@@ -262,6 +299,18 @@ async def mark_dose(dose_id: str, req: MarkDoseRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to mark dose: {str(e)}")
+
+@router.post("/anti-stacking/check", response_model=AntiStackingCheckResponse)
+async def check_anti_stacking(req: AntiStackingCheckRequest):
+    """
+    Checks if a late or missed dose is safe to take or risks dose stacking.
+    """
+    result = adherence_service.evaluate_anti_stacking(
+        user_id=req.user_id,
+        dose_id=req.dose_id,
+        medication_name=req.medication_name
+    )
+    return AntiStackingCheckResponse(**result)
 
 @router.post("/check-escalations", response_model=EscalationResponse)
 async def check_escalations(
@@ -283,6 +332,20 @@ async def check_escalations(
         alert_level=res["alert_level"],
         message=res["message"]
     )
+
+@router.get("/escalations", response_model=List[EscalationRecordSchema])
+async def get_escalation_records(user_id: str = Query("user-1")):
+    """
+    Returns recorded escalation history for the patient.
+    """
+    return [EscalationRecordSchema(**e) for e in get_db().get_escalations(user_id)]
+
+@router.get("/activities", response_model=List[ActivityLogSchema])
+async def get_activity_records(user_id: str = Query("user-1"), limit: int = Query(10)):
+    """
+    Returns recent medication activity logs.
+    """
+    return [ActivityLogSchema(**a) for a in get_db().get_activities(user_id, limit=limit)]
 
 @router.get("/reminders")
 async def get_reminders(

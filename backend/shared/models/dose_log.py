@@ -9,7 +9,8 @@ class DoseLog(BaseModel):
     dosage: str
     user_id: str
     scheduled_time: str # ISO datetime YYYY-MM-DDTHH:MM:SS
-    status: str = "upcoming" # "upcoming", "taken", "missed", "delayed"
+    status: str = "pending" # "pending", "upcoming", "taken", "delayed", "missed", "skipped"
+    food_instruction: Optional[str] = None # "After breakfast", "After lunch", "After dinner", "Before breakfast", etc.
     taken_at: Optional[str] = None
     notes: Optional[str] = None
     instructions: Optional[str] = None

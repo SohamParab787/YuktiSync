@@ -1,3 +1,4 @@
+import uuid
 import httpx
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -6,10 +7,10 @@ from backend.shared.database import get_db
 
 class EscalationService:
     """
-    Escalation Service:
-    Evaluates patient dose history for missed doses and triggers an escalation ladder toward
+    Escalation Service for YuktiSync:
+    Evaluates patient dose history for unconfirmed/missed doses and triggers an escalation ladder toward
     Person 4's caregiver module strictly via HTTP endpoint (/api/caregiver/*).
-    Does NOT write directly into caregiver/ files or tables.
+    Records every escalation event in the database for auditing and patient safety.
     """
     def __init__(self, db=None):
         self.db = db or get_db()
@@ -25,7 +26,7 @@ class EscalationService:
         now_str = datetime.now().isoformat()
 
         for d in all_doses:
-            if d.scheduled_time <= now_str and d.status != "upcoming":
+            if d.scheduled_time <= now_str and d.status not in ["pending", "upcoming"]:
                 past_and_current_doses.append(d)
 
         # Sort by scheduled time descending (most recent first)
@@ -33,7 +34,7 @@ class EscalationService:
 
         consecutive_missed = []
         for dose in past_and_current_doses:
-            if dose.status == "missed":
+            if dose.status in ["missed", "skipped"]:
                 consecutive_missed.append(dose)
             else:
                 # Sequence broken by taken/delayed dose
@@ -48,6 +49,7 @@ class EscalationService:
     ) -> Dict[str, Any]:
         """
         Evaluates missed doses ladder and calls /api/caregiver/* if threshold met.
+        Records escalation event.
         """
         missed_doses = self.count_consecutive_missed_doses(user_id)
         count = len(missed_doses)
@@ -62,15 +64,26 @@ class EscalationService:
             }
 
         if count == 1:
+            record = {
+                "id": f"esc-{uuid.uuid4().hex[:8]}",
+                "user_id": user_id,
+                "alert_level": "INFO",
+                "consecutive_missed": 1,
+                "medications": [missed_doses[0].medication_name],
+                "timestamp": datetime.now().isoformat(),
+                "message": f"Patient missed 1 dose ({missed_doses[0].medication_name}). Patient notification issued."
+            }
+            self.db.record_escalation(record)
             return {
                 "user_id": user_id,
                 "consecutive_missed": 1,
                 "escalated": False,
                 "alert_level": "INFO",
-                "message": f"Patient missed 1 dose ({missed_doses[0].medication_name}). Patient notification issued."
+                "message": record["message"],
+                "event_id": record["id"]
             }
 
-        # Level 2 or Level 3 (2+ missed doses): Escalate to Caregiver Module via HTTP
+        # Level 2 (2 missed) or Level 3 (3+ missed doses): Escalate to Caregiver Module via HTTP
         alert_level = "CRITICAL" if count >= 3 else "WARNING"
         med_names = list({d.medication_name for d in missed_doses})
         payload = {
@@ -96,11 +109,24 @@ class EscalationService:
             # Service down or un-mounted during test execution; logged gracefully
             api_response_msg = f"HTTP call to Caregiver API failed: {str(e)}"
 
+        record = {
+            "id": f"esc-{uuid.uuid4().hex[:8]}",
+            "user_id": user_id,
+            "alert_level": alert_level,
+            "consecutive_missed": count,
+            "medications": med_names,
+            "timestamp": payload["timestamp"],
+            "message": payload["message"],
+            "caregiver_status": api_response_msg
+        }
+        self.db.record_escalation(record)
+
         return {
             "user_id": user_id,
             "consecutive_missed": count,
             "escalated": True,
             "alert_level": alert_level,
             "message": payload["message"],
-            "caregiver_api_status": api_response_msg
+            "caregiver_api_status": api_response_msg,
+            "event_id": record["id"]
         }

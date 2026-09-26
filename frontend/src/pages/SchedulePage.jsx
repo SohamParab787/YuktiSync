@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { fetchScheduleTimeline, markDoseStatus, generateSchedule } from '../api/schedule';
+import { fetchScheduleTimeline, markDoseStatus, generateSchedule, checkAntiStacking } from '../api/schedule';
 import { ScheduleTimeline } from '../components/schedule/ScheduleTimeline';
-import { AdherenceSummary } from '../components/schedule/AdherenceSummary';
+import { AntiStackingAdvisor } from '../components/schedule/AntiStackingAdvisor';
 import { DashboardSkeleton } from '../components/schedule/SkeletonLoaders';
 import { ErrorState } from '../components/schedule/EmptyState';
 
 export const SchedulePage = ({ userId = 'user-1' }) => {
   const [viewType, setViewType] = useState('daily');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [timelineData, setTimelineData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [safetyAdvice, setSafetyAdvice] = useState(null);
 
   const loadTimeline = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchScheduleTimeline(userId, viewType);
+      const data = await fetchScheduleTimeline(userId, viewType, selectedDate);
       setTimelineData(data);
     } catch (err) {
       setError(err.message || 'Failed to load medication schedule.');
@@ -26,7 +28,7 @@ export const SchedulePage = ({ userId = 'user-1' }) => {
 
   useEffect(() => {
     loadTimeline();
-  }, [userId, viewType]);
+  }, [userId, viewType, selectedDate]);
 
   const handleMarkDose = async (doseId, status) => {
     try {
@@ -49,38 +51,71 @@ export const SchedulePage = ({ userId = 'user-1' }) => {
     }
   };
 
+  const handleCheckSafety = async (dose) => {
+    try {
+      const advice = await checkAntiStacking(userId, dose.medication_name, dose.id);
+      setSafetyAdvice(advice);
+    } catch (err) {
+      alert(`Failed to check dose safety: ${err.message}`);
+    }
+  };
+
   if (loading && !timelineData) {
     return <DashboardSkeleton />;
   }
 
   if (error && !timelineData) {
     return (
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-5xl mx-auto p-6">
         <ErrorState message={error} onRetry={loadTimeline} />
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div>
-          <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">MediAdhere Schedule Module</span>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">Medication Schedule & Calendar</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Track daily and weekly dose schedules, log adherence, and generate timetables.
-          </p>
+    <div className="min-h-screen bg-slate-50/50 pb-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+        
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-emerald-800 to-emerald-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-emerald-950/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-emerald-300 uppercase tracking-widest">YuktiSync Schedule</span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white">Medication Timetable & Calendar</h1>
+            <p className="text-xs sm:text-sm text-emerald-100/90 max-w-xl">
+              View your personalized daily and weekly medication routine, instructions, meal timings, and status.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
         </div>
-      </div>
 
-      <ScheduleTimeline
-        timelineData={timelineData}
-        viewType={viewType}
-        onViewTypeChange={setViewType}
-        onMarkStatus={handleMarkDose}
-        onGenerateSchedule={handleGenerateSchedule}
-        loading={loading}
-      />
+        {/* Safety Advisor Popup */}
+        {safetyAdvice && (
+          <AntiStackingAdvisor
+            advice={safetyAdvice}
+            onClose={() => setSafetyAdvice(null)}
+          />
+        )}
+
+        {/* Timeline View */}
+        <ScheduleTimeline
+          timelineData={timelineData}
+          viewType={viewType}
+          currentDate={selectedDate}
+          onViewTypeChange={setViewType}
+          onDateChange={setSelectedDate}
+          onMarkStatus={handleMarkDose}
+          onCheckSafety={handleCheckSafety}
+          onGenerateSchedule={handleGenerateSchedule}
+          loading={loading}
+        />
+      </div>
     </div>
   );
 };

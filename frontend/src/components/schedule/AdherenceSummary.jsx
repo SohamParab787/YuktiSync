@@ -14,26 +14,29 @@ export const AdherenceSummary = ({ summary, title = "Today's Adherence" }) => {
 
   const dueDoses = taken_doses + missed_doses + delayed_doses;
 
-  const getProgressColor = (pct) => {
-    if (pct >= 80) return 'bg-green-500 text-green-700';
-    if (pct >= 50) return 'bg-amber-500 text-amber-700';
-    return 'bg-red-500 text-red-700';
+  const getScoreColor = (pct) => {
+    if (pct >= 80) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    if (pct >= 50) return 'text-amber-700 bg-amber-50 border-amber-200';
+    return 'text-rose-700 bg-rose-50 border-rose-200';
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-slate-800 text-base">{title}</h3>
-        <span className={`text-2xl font-black ${getProgressColor(adherence_percentage).split(' ')[1]}`}>
+        <div>
+          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Health Adherence</span>
+          <h3 className="font-bold text-slate-900 text-lg">{title}</h3>
+        </div>
+        <div className={`px-3 py-1.5 rounded-xl border text-xl font-black ${getScoreColor(adherence_percentage)}`}>
           {adherence_percentage}%
-        </span>
+        </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
           <div
-            className="bg-green-500 h-full transition-all duration-500"
+            className="bg-emerald-500 h-full transition-all duration-500"
             style={{ width: `${dueDoses > 0 ? (taken_doses / dueDoses) * 100 : 0}%` }}
             title={`Taken: ${taken_doses}`}
           />
@@ -43,44 +46,38 @@ export const AdherenceSummary = ({ summary, title = "Today's Adherence" }) => {
             title={`Delayed: ${delayed_doses}`}
           />
           <div
-            className="bg-red-500 h-full transition-all duration-500"
+            className="bg-rose-500 h-full transition-all duration-500"
             style={{ width: `${dueDoses > 0 ? (missed_doses / dueDoses) * 100 : 0}%` }}
             title={`Missed: ${missed_doses}`}
           />
         </div>
-        <div
-          role="progressbar"
-          aria-valuenow={adherence_percentage}
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-label={`${title} adherence percentage: ${adherence_percentage}%`}
-          className="sr-only"
-        />
+        <div className="flex justify-between text-xs text-slate-500 font-medium">
+          <span>{taken_doses} of {total_doses} doses recorded</span>
+          <span>{upcoming_doses} pending today</span>
+        </div>
       </div>
-
-      <p className="text-xs text-slate-500 font-medium">
-        {taken_doses} of {total_doses} doses taken ({upcoming_doses} upcoming)
-      </p>
 
       {/* Breakdown Grid */}
       <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-center">
-        <div className="bg-green-50 rounded-lg p-2">
-          <span className="block text-xs text-green-700 font-medium">Taken</span>
-          <span className="text-lg font-bold text-green-800">{taken_doses}</span>
+        <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5">
+          <span className="block text-xs text-emerald-800 font-medium">Taken</span>
+          <span className="text-lg font-bold text-emerald-900">{taken_doses}</span>
         </div>
-        <div className="bg-amber-50 rounded-lg p-2">
-          <span className="block text-xs text-amber-700 font-medium">Delayed</span>
-          <span className="text-lg font-bold text-amber-800">{delayed_doses}</span>
+        <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-2.5">
+          <span className="block text-xs text-amber-800 font-medium">Delayed</span>
+          <span className="text-lg font-bold text-amber-900">{delayed_doses}</span>
         </div>
-        <div className="bg-red-50 rounded-lg p-2">
-          <span className="block text-xs text-red-700 font-medium">Missed</span>
-          <span className="text-lg font-bold text-red-800">{missed_doses}</span>
+        <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-2.5">
+          <span className="block text-xs text-rose-800 font-medium">Missed</span>
+          <span className="text-lg font-bold text-rose-900">{missed_doses}</span>
         </div>
-        <div className="bg-blue-50 rounded-lg p-2">
-          <span className="block text-xs text-blue-700 font-medium">Upcoming</span>
-          <span className="text-lg font-bold text-blue-800">{upcoming_doses}</span>
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5">
+          <span className="block text-xs text-slate-600 font-medium">Pending</span>
+          <span className="text-lg font-bold text-slate-800">{upcoming_doses}</span>
         </div>
       </div>
     </div>
   );
 };
+
+export default AdherenceSummary;

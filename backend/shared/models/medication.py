@@ -14,6 +14,7 @@ class Medication(BaseModel):
     duration_days: int = 7
     start_date: str # ISO date string YYYY-MM-DD
     end_date: str # ISO date string YYYY-MM-DD
+    food_instruction: Optional[str] = None # e.g. "After breakfast", "After lunch", "After dinner"
     instructions: Optional[str] = None
     active: bool = True
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())

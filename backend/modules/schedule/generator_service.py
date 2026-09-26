@@ -23,7 +23,28 @@ class GeneratorService:
         elif "four" in freq_lower or "4 times" in freq_lower or "qid" in freq_lower or "every 6" in freq_lower:
             return ["08:00", "12:00", "16:00", "20:00"]
         else: # Default once daily
-            return ["09:00"]
+            return ["08:00"]
+
+    @staticmethod
+    def derive_food_instruction(time_str: str, general_instruction: Optional[str] = None) -> str:
+        gen_lower = (general_instruction or "").lower()
+        is_before = "before" in gen_lower or "empty stomach" in gen_lower
+        
+        # Check hour
+        try:
+            hour = int(time_str.split(":")[0])
+        except Exception:
+            hour = 8
+
+        if hour < 11:
+            meal = "breakfast"
+        elif hour < 16:
+            meal = "lunch"
+        else:
+            meal = "dinner"
+
+        prefix = "Before" if is_before else "After"
+        return f"{prefix} {meal}"
 
     async def fetch_prescription_from_api(self, user_id: str, prescription_id: Optional[str] = None, base_url: str = "http://localhost:8000") -> List[Dict[str, Any]]:
         """
@@ -53,7 +74,7 @@ class GeneratorService:
         base_url: str = "http://localhost:8000"
     ) -> Dict[str, Any]:
         """
-        Builds timetable from prescription data and saves to DB.
+        Builds timetable from prescription data with food instructions and saves to DB.
         """
         meds_raw = []
         if prescription_data:
@@ -65,22 +86,26 @@ class GeneratorService:
         if not meds_raw and (prescription_id or user_id):
             meds_raw = await self.fetch_prescription_from_api(user_id, prescription_id, base_url)
 
-        # Fallback default if no prescription data is available via API or payload
+        # Fallback default clinical schedule matching YuktiSync requirements
         if not meds_raw:
             meds_raw = [
                 {
-                    "name": "Amoxicillin",
+                    "name": "Medicine A (Amoxicillin)",
                     "dosage": "500mg",
                     "frequency": "twice daily",
                     "duration_days": 7,
-                    "instructions": "Take after meals"
+                    "scheduled_times": ["08:00", "20:00"],
+                    "instructions": "Take after meal",
+                    "food_instruction": "After breakfast"
                 },
                 {
-                    "name": "Lisinopril",
-                    "dosage": "10mg",
+                    "name": "Medicine B (Pantoprazole)",
+                    "dosage": "40mg",
                     "frequency": "once daily",
-                    "duration_days": 30,
-                    "instructions": "Take in the morning"
+                    "duration_days": 14,
+                    "scheduled_times": ["14:00"],
+                    "instructions": "Take after lunch",
+                    "food_instruction": "After lunch"
                 }
             ]
 
@@ -115,6 +140,7 @@ class GeneratorService:
                 duration_days=item_duration,
                 start_date=start_d.isoformat(),
                 end_date=end_d.isoformat(),
+                food_instruction=item.get("food_instruction"),
                 instructions=instructions,
                 active=True
             )
@@ -130,6 +156,8 @@ class GeneratorService:
 
                     if dedup_key not in existing_dose_times:
                         dose_id = f"dose-{uuid.uuid4().hex[:8]}"
+                        food_inst = item.get("food_instruction") or self.derive_food_instruction(time_str, instructions)
+                        
                         dose_log = DoseLog(
                             id=dose_id,
                             medication_id=med_id,
@@ -137,7 +165,8 @@ class GeneratorService:
                             dosage=dosage,
                             user_id=user_id,
                             scheduled_time=scheduled_iso,
-                            status="upcoming",
+                            status="pending",
+                            food_instruction=food_inst,
                             instructions=instructions,
                             grace_period_minutes=60
                         )

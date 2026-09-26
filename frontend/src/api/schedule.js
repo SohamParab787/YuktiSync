@@ -121,6 +121,41 @@ export const checkEscalations = async (userId = 'user-1') => {
   }
 };
 
+export const checkAntiStacking = async (userId = 'user-1', medicationName = '', doseId = null) => {
+  try {
+    const response = await api.post(`/api/schedule/anti-stacking/check`, {
+      user_id: userId,
+      medication_name: medicationName,
+      dose_id: doseId
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const fetchEscalationHistory = async (userId = 'user-1') => {
+  try {
+    const response = await api.get(`/api/schedule/escalations`, {
+      params: { user_id: userId }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
+export const fetchActivityHistory = async (userId = 'user-1', limit = 10) => {
+  try {
+    const response = await api.get(`/api/schedule/activities`, {
+      params: { user_id: userId, limit }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error));
+  }
+};
+
 export const fetchReminders = async (userId = 'user-1', lookaheadMinutes = 30) => {
   try {
     const response = await api.get(`/api/schedule/reminders`, {

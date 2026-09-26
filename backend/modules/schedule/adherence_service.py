@@ -5,21 +5,17 @@ from backend.shared.database import get_db
 
 class AdherenceService:
     """
-    Adherence Service for tracking dose statuses (taken/missed/delayed),
-    computing daily/weekly adherence statistics, and auto-transitioning overdue doses.
-    
-    Auto-Transition Strategy:
-    MediAdhere employs an on-read check on dose query (in auto_transition_missed_doses),
-    ensuring whenever dashboard or schedule endpoints are accessed, any UPCOMING doses
-    whose (scheduled_time + grace_period_minutes) has passed are immediately updated to MISSED.
-    It also provides `auto_transition_missed_doses` as a function ready to be called by a periodic background runner.
+    Adherence Service for YuktiSync:
+    Tracks dose statuses (pending/upcoming, taken, delayed, missed, skipped),
+    computes adherence analytics, handles anti-stacking safety checks,
+    and logs patient medication activities.
     """
     def __init__(self, db=None):
         self.db = db or get_db()
 
     def auto_transition_missed_doses(self, user_id: Optional[str] = None, grace_period_minutes: int = 60) -> List[DoseLog]:
         """
-        Inspects upcoming doses. If current time is past (scheduled_time + grace_period_minutes),
+        Inspects pending/upcoming doses. If current time is past (scheduled_time + grace_period_minutes),
         transitions status to 'missed'.
         """
         now = datetime.now()
@@ -27,13 +23,20 @@ class AdherenceService:
         all_doses = self.db.get_dose_logs_by_user(user_id) if user_id else list(self.db.dose_logs.values())
 
         for dose in all_doses:
-            if dose.status == "upcoming":
+            if dose.status in ["pending", "upcoming"]:
                 try:
                     sched_dt = datetime.fromisoformat(dose.scheduled_time)
                     grace = timedelta(minutes=dose.grace_period_minutes or grace_period_minutes)
                     if now > (sched_dt + grace):
                         dose.status = "missed"
                         self.db.update_dose_log(dose)
+                        self.db.record_activity(
+                            user_id=dose.user_id,
+                            dose_id=dose.id,
+                            medication_name=dose.medication_name,
+                            action="Auto-marked as Missed",
+                            details=f"Dose was unconfirmed after {dose.grace_period_minutes or grace_period_minutes} min grace window."
+                        )
                         transitioned.append(dose)
                 except ValueError:
                     pass
@@ -47,16 +50,17 @@ class AdherenceService:
         notes: Optional[str] = None
     ) -> DoseLog:
         """
-        Logs dose status (taken/missed/delayed).
+        Logs dose status (taken/missed/delayed/skipped).
         If status is 'taken' but taken_at is past scheduled_time + grace_period, automatically flags as 'delayed'.
+        Records event in activity history.
         """
         dose = self.db.get_dose_log(dose_id)
         if not dose:
             raise ValueError(f"Dose with ID '{dose_id}' not found.")
 
         target_status = status.lower()
-        if target_status not in ["taken", "missed", "delayed", "upcoming"]:
-            raise ValueError(f"Invalid status '{status}'. Must be taken, missed, delayed, or upcoming.")
+        if target_status not in ["taken", "missed", "delayed", "skipped", "pending", "upcoming"]:
+            raise ValueError(f"Invalid status '{status}'. Must be taken, missed, delayed, skipped, or pending.")
 
         taken_timestamp = taken_at or datetime.now().isoformat()
 
@@ -75,7 +79,115 @@ class AdherenceService:
             dose.taken_at = taken_timestamp
         dose.notes = notes or dose.notes
 
-        return self.db.update_dose_log(dose)
+        updated = self.db.update_dose_log(dose)
+
+        # Log activity
+        action_map = {
+            "taken": "Marked as Taken",
+            "delayed": "Marked as Delayed",
+            "missed": "Marked as Missed",
+            "skipped": "Marked as Skipped",
+            "pending": "Reset to Pending"
+        }
+        self.db.record_activity(
+            user_id=dose.user_id,
+            dose_id=dose.id,
+            medication_name=dose.medication_name,
+            action=action_map.get(target_status, f"Status updated to {target_status}"),
+            details=f"Dosage: {dose.dosage} | Scheduled: {dose.scheduled_time} | Notes: {notes or 'None'}"
+        )
+
+        return updated
+
+    def evaluate_anti_stacking(self, user_id: str, dose_id: Optional[str] = None, medication_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Anti-Stacking & Missed-Dose Safety Rule:
+        Compares current time with the next scheduled dose for this medication.
+        Returns safety recommendation: SAFE TO TAKE, WAIT / SKIP, or CONSULT PROFESSIONAL.
+        Never automatically modifies prescribed dosage.
+        """
+        all_doses = self.db.get_dose_logs_by_user(user_id)
+        target_med = medication_name
+
+        if dose_id:
+            curr_dose = self.db.get_dose_log(dose_id)
+            if curr_dose:
+                target_med = curr_dose.medication_name
+
+        if not target_med and all_doses:
+            target_med = all_doses[0].medication_name
+
+        if not target_med:
+            return {
+                "status": "SAFE TO TAKE",
+                "recommendation": "No scheduled doses found to conflict with.",
+                "hours_until_next_dose": None,
+                "next_scheduled_time": None,
+                "stacking_risk_detected": False,
+                "disclaimer": "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+            }
+
+        now = datetime.now()
+        # Find next upcoming dose for the same medication
+        future_doses = []
+        missed_count = 0
+
+        for d in all_doses:
+            if d.medication_name.lower() == target_med.lower():
+                if d.status in ["missed", "skipped"]:
+                    missed_count += 1
+                try:
+                    s_dt = datetime.fromisoformat(d.scheduled_time)
+                    if s_dt > now and d.status in ["pending", "upcoming"]:
+                        future_doses.append((s_dt, d))
+                except ValueError:
+                    pass
+
+        future_doses.sort(key=lambda x: x[0])
+
+        if missed_count >= 2:
+            return {
+                "status": "CONSULT PROFESSIONAL",
+                "recommendation": f"You have missed {missed_count} doses of {target_med}. Please consult your physician or pharmacist before resuming this medication to avoid adverse effects or complications.",
+                "hours_until_next_dose": (future_doses[0][0] - now).total_seconds() / 3600.0 if future_doses else None,
+                "next_scheduled_time": future_doses[0][1].scheduled_time if future_doses else None,
+                "stacking_risk_detected": True,
+                "disclaimer": "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+            }
+
+        if not future_doses:
+            return {
+                "status": "SAFE TO TAKE",
+                "recommendation": f"No immediate next dose scheduled for {target_med}. Safe to take this dose as prescribed.",
+                "hours_until_next_dose": None,
+                "next_scheduled_time": None,
+                "stacking_risk_detected": False,
+                "disclaimer": "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+            }
+
+        next_dt, next_dose_obj = future_doses[0]
+        hours_diff = (next_dt - now).total_seconds() / 3600.0
+        time_formatted = next_dt.strftime("%I:%M %p")
+
+        # Threshold: if next dose is less than 4 hours away, risk of drug stacking
+        if hours_diff < 4.0:
+            return {
+                "status": "WAIT / SKIP",
+                "recommendation": f"Your next scheduled dose of {target_med} is only {hours_diff:.1f} hours away at {time_formatted}. Taking this dose now may cause hazardous drug stacking. Skip this missed dose and take your next dose at the regular time.",
+                "hours_until_next_dose": round(hours_diff, 1),
+                "next_scheduled_time": next_dose_obj.scheduled_time,
+                "stacking_risk_detected": True,
+                "disclaimer": "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+            }
+        else:
+            return {
+                "status": "SAFE TO TAKE",
+                "recommendation": f"It is safe to take your dose now. Your next scheduled dose of {target_med} is {hours_diff:.1f} hours away at {time_formatted}. Do not exceed your prescribed dosage.",
+                "hours_until_next_dose": round(hours_diff, 1),
+                "next_scheduled_time": next_dose_obj.scheduled_time,
+                "stacking_risk_detected": False,
+                "disclaimer": "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+            }
 
     def get_daily_adherence(self, user_id: str, target_date_str: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -93,9 +205,9 @@ class AdherenceService:
 
         total = len(todays_doses)
         taken = sum(1 for d in todays_doses if d.status == "taken")
-        missed = sum(1 for d in todays_doses if d.status == "missed")
+        missed = sum(1 for d in todays_doses if d.status in ["missed", "skipped"])
         delayed = sum(1 for d in todays_doses if d.status == "delayed")
-        upcoming = sum(1 for d in todays_doses if d.status == "upcoming")
+        upcoming = sum(1 for d in todays_doses if d.status in ["pending", "upcoming"])
 
         due_total = taken + missed + delayed
         if due_total > 0:
@@ -138,9 +250,9 @@ class AdherenceService:
 
             d_total = len(day_doses)
             d_taken = sum(1 for d in day_doses if d.status == "taken")
-            d_missed = sum(1 for d in day_doses if d.status == "missed")
+            d_missed = sum(1 for d in day_doses if d.status in ["missed", "skipped"])
             d_delayed = sum(1 for d in day_doses if d.status == "delayed")
-            d_upcoming = sum(1 for d in day_doses if d.status == "upcoming")
+            d_upcoming = sum(1 for d in day_doses if d.status in ["pending", "upcoming"])
 
             d_due = d_taken + d_missed + d_delayed
             d_pct = round(((d_taken + (0.5 * d_delayed)) / d_due) * 100.0, 1) if d_due > 0 else 100.0

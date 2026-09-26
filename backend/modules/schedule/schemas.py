@@ -3,10 +3,12 @@ from typing import List, Optional, Dict, Any
 from enum import Enum
 
 class DoseStatusEnum(str, Enum):
+    PENDING = "pending"
     UPCOMING = "upcoming"
     TAKEN = "taken"
     MISSED = "missed"
     DELAYED = "delayed"
+    SKIPPED = "skipped"
 
 class ScheduleGenerateRequest(BaseModel):
     user_id: str
@@ -22,7 +24,7 @@ class ScheduleGenerateResponse(BaseModel):
     medication_ids: List[str]
 
 class MarkDoseRequest(BaseModel):
-    status: str # "taken", "missed", "delayed"
+    status: str # "taken", "missed", "delayed", "skipped", "pending"
     taken_at: Optional[str] = None
     notes: Optional[str] = None
 
@@ -33,7 +35,8 @@ class DoseLogSchema(BaseModel):
     dosage: str
     user_id: str
     scheduled_time: str
-    status: str
+    status: str # "pending", "upcoming", "taken", "delayed", "missed", "skipped"
+    food_instruction: Optional[str] = None # e.g. "After breakfast", "After lunch", "After dinner"
     taken_at: Optional[str] = None
     notes: Optional[str] = None
     instructions: Optional[str] = None
@@ -63,6 +66,7 @@ class NextDoseInfo(BaseModel):
     dosage: str
     scheduled_time: str
     seconds_remaining: int
+    food_instruction: Optional[str] = None
     instructions: Optional[str] = None
 
 class MissedDoseAlert(BaseModel):
@@ -86,15 +90,36 @@ class EscalationStatus(BaseModel):
     escalated_to_caregiver: bool
     message: str
 
-class DashboardResponse(BaseModel):
+class AntiStackingCheckRequest(BaseModel):
     user_id: str
-    date: str
-    todays_doses: List[DoseLogSchema]
-    next_dose: Optional[NextDoseInfo] = None
-    adherence_summary: AdherenceSummaryResponse
-    missed_alerts: List[MissedDoseAlert] = Field(default_factory=list)
-    risk_alerts: List[RiskAlertSchema] = Field(default_factory=list)
-    escalation_status: Optional[EscalationStatus] = None
+    medication_name: str
+    dose_id: Optional[str] = None
+
+class AntiStackingCheckResponse(BaseModel):
+    status: str # "SAFE TO TAKE", "WAIT / SKIP", "CONSULT PROFESSIONAL"
+    recommendation: str
+    hours_until_next_dose: Optional[float] = None
+    next_scheduled_time: Optional[str] = None
+    stacking_risk_detected: bool = False
+    disclaimer: str = "Medication decisions should follow prescribed instructions or professional guidance. Never automatically change your prescribed dosage."
+
+class ActivityLogSchema(BaseModel):
+    id: str
+    user_id: str
+    dose_id: str
+    medication_name: str
+    action: str
+    details: Optional[str] = None
+    timestamp: str
+
+class EscalationRecordSchema(BaseModel):
+    id: str
+    user_id: str
+    alert_level: str
+    consecutive_missed: int
+    medications: List[str]
+    timestamp: str
+    message: str
 
 class DailyBreakdownItem(BaseModel):
     date: str
@@ -105,6 +130,19 @@ class DailyBreakdownItem(BaseModel):
     upcoming_doses: int
     adherence_percentage: float
     doses: List[DoseLogSchema]
+
+class DashboardResponse(BaseModel):
+    user_id: str
+    date: str
+    greeting: str = "Good Morning"
+    todays_doses: List[DoseLogSchema]
+    next_dose: Optional[NextDoseInfo] = None
+    adherence_summary: AdherenceSummaryResponse
+    missed_alerts: List[MissedDoseAlert] = Field(default_factory=list)
+    risk_alerts: List[RiskAlertSchema] = Field(default_factory=list)
+    escalation_status: Optional[EscalationStatus] = None
+    anti_stacking_advice: Optional[AntiStackingCheckResponse] = None
+    recent_activities: List[ActivityLogSchema] = Field(default_factory=list)
 
 class ScheduleTimelineResponse(BaseModel):
     user_id: str
