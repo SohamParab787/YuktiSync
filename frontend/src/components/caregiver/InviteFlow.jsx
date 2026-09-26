@@ -223,12 +223,14 @@ export default function InviteFlow({ defaultPatientId = "patient-101", onNavigat
             {inviteResult && (
               <div className="invite-success-card">
                 <div className="success-header">
-                  <span className="badge-success">Invite Token Generated</span>
+                  <span className="badge-success">{inviteResult.email_sent ? "Invitation Email Sent" : "Invite Link Generated"}</span>
                   <span className="expires-tag">Valid for {expiresInDays} days</span>
                 </div>
                 <p className="invite-success-text">
-                  Share this invitation link with <strong>{inviteResult.caregiver_email}</strong>. 
-                  They can accept it to link their caregiver account with <em>{inviteResult.permissions}</em> access.
+                  {inviteResult.email_sent
+                    ? <>An invitation email was sent to <strong>{inviteResult.caregiver_email}</strong>.</>
+                    : <>{inviteResult.email_error || "Email delivery is not configured; share this link manually with "}<strong>{inviteResult.caregiver_email}</strong>.</>}
+                  {" "}They can accept it to link their caregiver account with <em>{inviteResult.permissions}</em> access.
                 </p>
                 <div className="token-copy-box">
                   <input

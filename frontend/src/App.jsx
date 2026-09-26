@@ -162,14 +162,30 @@ function CaregiverApp() {
 function ScheduleLayout() {
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <Link className="font-bold text-slate-900" to="/dashboard">YuktiSync</Link>
-          <nav aria-label="Main navigation" className="flex flex-wrap gap-2 text-sm font-semibold">
-            <NavLink className="rounded px-3 py-2 hover:bg-slate-100" to="/dashboard">Dashboard</NavLink>
-            <NavLink className="rounded px-3 py-2 hover:bg-slate-100" to="/schedule">Schedule</NavLink>
-            <NavLink className="rounded px-3 py-2 hover:bg-slate-100" to="/caregiver/dashboard/patient-101">Caregiver tools</NavLink>
-          </nav>
+      <header className="navbar schedule-navbar">
+        <Link className="nav-brand" to="/caregiver/dashboard/patient-101">
+          <div className="brand-icon-box">💊</div>
+          <div>
+            <div className="brand-name">YuktiSync</div>
+            <div className="brand-tagline">Caregiver Coordination & Assistant</div>
+          </div>
+        </Link>
+        <div className="nav-links">
+          <NavLink className={({ isActive }) => `nav-item-btn ${isActive ? "active" : ""}`} to="/caregiver/dashboard/patient-101">
+            <span>📊</span><span>Dashboard</span>
+          </NavLink>
+          <NavLink className={({ isActive }) => `nav-item-btn ${isActive ? "active" : ""}`} to="/caregiver/invite">
+            <span>✉️</span><span>Invites & Access</span>
+          </NavLink>
+          <NavLink className={({ isActive }) => `nav-item-btn ${isActive ? "active" : ""}`} to="/caregiver/chat">
+            <span>💬</span><span>Clinical Assistant</span>
+          </NavLink>
+          <NavLink className={({ isActive }) => `nav-item-btn ${isActive ? "active" : ""}`} to="/dashboard">
+            Medication Dashboard
+          </NavLink>
+          <NavLink className={({ isActive }) => `nav-item-btn ${isActive ? "active" : ""}`} to="/schedule">
+            Medication Schedule
+          </NavLink>
         </div>
       </header>
       <Outlet />

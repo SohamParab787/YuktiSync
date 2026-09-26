@@ -58,7 +58,7 @@ export const RiskAlertBanner = ({ alerts = [] }) => {
               <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1">
                 <span className="font-semibold text-slate-600">Involved Medications:</span>
                 {alert.medications.map((m, i) => (
-                  <span key={i} className="px-2 py-0.5 bg-white/80 rounded border font-semibold">
+                  <span key={i} className="px-2 py-0.5 bg-emerald-50/90 rounded border font-semibold">
                     {m}
                   </span>
                 ))}

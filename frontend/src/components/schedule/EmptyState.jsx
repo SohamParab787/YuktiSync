@@ -1,14 +1,14 @@
 import React from 'react';
 
 export const EmptyState = ({ message = "No medications scheduled today.", onAction, actionLabel = "Generate Schedule" }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
+  <div className="bg-[#f1f7f1] rounded-xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
     <div className="text-4xl">💊</div>
     <h4 className="font-bold text-slate-800 text-lg">No Scheduled Doses Found</h4>
     <p className="text-sm text-slate-500 max-w-sm mx-auto">{message}</p>
     {onAction && (
       <button
         onClick={onAction}
-        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors"
+        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors"
       >
         {actionLabel}
       </button>

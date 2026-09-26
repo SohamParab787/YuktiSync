@@ -21,7 +21,7 @@ export const AdherenceSummary = ({ summary, title = "Today's Adherence" }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+    <div className="bg-[#f1f7f1] rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Health Adherence</span>

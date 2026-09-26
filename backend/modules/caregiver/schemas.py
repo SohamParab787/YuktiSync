@@ -54,6 +54,8 @@ class CaregiverPatientLinkResponse(BaseModel):
     status: InviteStatusEnum
     invite_token: Optional[str] = None
     invite_url: Optional[str] = None
+    email_sent: Optional[bool] = None
+    email_error: Optional[str] = None
     expires_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

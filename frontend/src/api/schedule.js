@@ -12,7 +12,7 @@ const getBaseUrl = () => {
       return process.env.REACT_APP_API_BASE_URL;
     }
   } catch (e) {}
-  return 'http://localhost:8000';
+  return '';
 };
 
 const BASE_URL = getBaseUrl();

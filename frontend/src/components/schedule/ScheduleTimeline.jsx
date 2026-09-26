@@ -51,7 +51,7 @@ export const ScheduleTimeline = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+    <div className="bg-[#f1f7f1] rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
       {/* Header controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div>
@@ -70,20 +70,20 @@ export const ScheduleTimeline = ({
             <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 p-1 text-xs">
               <button
                 onClick={handlePrevDay}
-                className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 font-bold hover:bg-white rounded-lg transition-colors"
+                className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 font-bold hover:bg-[#f1f7f1] rounded-lg transition-colors"
                 title="Previous Day"
               >
                 ← Prev
               </button>
               <button
                 onClick={handleToday}
-                className="px-2.5 py-1 text-emerald-800 font-bold hover:bg-white rounded-lg transition-colors"
+                className="px-2.5 py-1 text-emerald-800 font-bold hover:bg-[#f1f7f1] rounded-lg transition-colors"
               >
                 Today
               </button>
               <button
                 onClick={handleNextDay}
-                className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 font-bold hover:bg-white rounded-lg transition-colors"
+                className="px-2.5 py-1 text-slate-600 hover:text-emerald-700 font-bold hover:bg-[#f1f7f1] rounded-lg transition-colors"
                 title="Next Day"
               >
                 Next →
@@ -96,7 +96,7 @@ export const ScheduleTimeline = ({
             <button
               onClick={() => onViewTypeChange && onViewTypeChange('daily')}
               className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewType === 'daily' ? 'bg-white shadow-xs text-emerald-700 font-bold' : 'text-slate-600 hover:text-slate-900'
+                viewType === 'daily' ? 'bg-[#f1f7f1] shadow-xs text-emerald-700 font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Daily View
@@ -104,7 +104,7 @@ export const ScheduleTimeline = ({
             <button
               onClick={() => onViewTypeChange && onViewTypeChange('weekly')}
               className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewType === 'weekly' ? 'bg-white shadow-xs text-emerald-700 font-bold' : 'text-slate-600 hover:text-slate-900'
+                viewType === 'weekly' ? 'bg-[#f1f7f1] shadow-xs text-emerald-700 font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Weekly View
@@ -179,7 +179,7 @@ export const ScheduleTimeline = ({
                       {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                   </div>
-                  <span className="text-xs font-semibold text-emerald-800 bg-white px-2.5 py-1 rounded-md border border-emerald-200">
+                  <span className="text-xs font-semibold text-emerald-800 bg-[#f1f7f1] px-2.5 py-1 rounded-md border border-emerald-200">
                     Adherence: {day.adherence_percentage}% ({day.taken_doses}/{day.total_doses} taken)
                   </span>
                 </div>

@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, status
 
 from backend.config import settings
+from backend.modules.caregiver.email_service import send_invite_email
 from backend.shared.database import db
 from backend.modules.caregiver.schemas import (
     CaregiverPermissionEnum,
@@ -106,7 +107,15 @@ async def create_invite(
     logger.info(f"Generated caregiver invite {link_id} for patient {patient_id} -> {caregiver_email}")
 
     response = link_record.copy()
-    response["invite_url"] = f"/caregiver/invite?token={token}"
+    response["invite_url"] = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/caregiver/invite?token={token}"
+    try:
+        response["email_sent"] = await send_invite_email(
+            caregiver_email, caregiver_name, patient_name, response["invite_url"], expires_in_days
+        )
+        response["email_error"] = None if response["email_sent"] else "Email delivery is not configured; share the invitation link manually."
+    except RuntimeError as exc:
+        response["email_sent"] = False
+        response["email_error"] = str(exc)
     return response
 
 

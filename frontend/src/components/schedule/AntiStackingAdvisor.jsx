@@ -63,7 +63,7 @@ export const AntiStackingAdvisor = ({ advice, onClose }) => {
       </p>
 
       {hours_until_next_dose !== null && hours_until_next_dose !== undefined && (
-        <div className="text-xs flex items-center gap-2 font-semibold text-slate-700 bg-white/70 px-3 py-1.5 rounded-lg border border-slate-200/60">
+        <div className="text-xs flex items-center gap-2 font-semibold text-slate-700 bg-emerald-50/80 px-3 py-1.5 rounded-lg border border-slate-200/60">
           <span>Next scheduled dose in: <strong>{hours_until_next_dose} hours</strong></span>
           {next_scheduled_time && (
             <span>({new Date(next_scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>

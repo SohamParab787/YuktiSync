@@ -116,7 +116,7 @@ export const DoseCard = ({
       className={`rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
         isNextDose
           ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-200 shadow-emerald-50'
-          : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow'
+          : 'border-slate-200 bg-[#f1f7f1] hover:border-emerald-300 hover:shadow'
       }`}
       role="article"
       aria-label={`Medication dose: ${dose?.medication_name}`}

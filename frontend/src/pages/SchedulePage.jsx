@@ -66,15 +66,15 @@ export const SchedulePage = ({ userId = 'user-1' }) => {
 
   if (error && !timelineData) {
     return (
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="w-full max-w-[1680px] mx-auto p-6">
         <ErrorState message={error} onRetry={loadTimeline} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-16">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+    <div className="min-h-screen bg-emerald-50/60 pb-16">
+      <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-10 pt-6 space-y-6">
         
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-emerald-800 to-emerald-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-emerald-950/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
