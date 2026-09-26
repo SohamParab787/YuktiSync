@@ -42,8 +42,10 @@ export const DoseCard = ({
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status?.toLowerCase()) {
+  const currentStatus = (dose?.status || 'upcoming').toLowerCase();
+
+  const getStatusBadge = (statusStr) => {
+    switch (statusStr) {
       case 'taken':
         return (
           <span
@@ -88,9 +90,9 @@ export const DoseCard = ({
     }
   };
 
-  const formattedTime = dose.scheduled_time
+  const formattedTime = dose?.scheduled_time
     ? new Date(dose.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : dose.scheduled_time;
+    : dose?.scheduled_time;
 
   return (
     <div
@@ -100,14 +102,14 @@ export const DoseCard = ({
           : 'border-slate-200 bg-white hover:border-slate-300'
       }`}
       role="article"
-      aria-label={`Medication dose: ${dose.medication_name}`}
+      aria-label={`Medication dose: ${dose?.medication_name}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-bold text-slate-900 text-lg">{dose.medication_name}</h4>
-            <span className="text-sm font-medium text-slate-500">({dose.dosage})</span>
-            {getStatusBadge(dose.status)}
+            <h4 className="font-bold text-slate-900 text-lg">{dose?.medication_name}</h4>
+            <span className="text-sm font-medium text-slate-500">({dose?.dosage})</span>
+            {getStatusBadge(currentStatus)}
             {isNextDose && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">
                 Next Scheduled Dose
@@ -124,13 +126,13 @@ export const DoseCard = ({
             )}
           </div>
 
-          {dose.instructions && (
+          {dose?.instructions && (
             <p className="text-xs text-slate-500 italic mt-1">
               💡 {dose.instructions}
             </p>
           )}
 
-          {dose.taken_at && (
+          {dose?.taken_at && (
             <p className="text-xs text-green-700 mt-1">
               Recorded at: {new Date(dose.taken_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -138,36 +140,36 @@ export const DoseCard = ({
         </div>
 
         <div className="flex items-center gap-2 mt-2 sm:mt-0">
-          {dose.status !== 'taken' && (
+          {currentStatus !== 'taken' && (
             <button
               onClick={() => handleAction('taken')}
               disabled={disabled || loadingStatus}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors"
-              aria-label={`Mark ${dose.medication_name} as taken`}
+              aria-label={`Mark ${dose?.medication_name} as taken`}
             >
-              Mark Taken
+              {loadingStatus ? 'Saving...' : 'Mark Taken'}
             </button>
           )}
 
-          {dose.status !== 'missed' && (
+          {currentStatus !== 'missed' && (
             <button
               onClick={() => handleAction('missed')}
               disabled={disabled || loadingStatus}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 transition-colors"
-              aria-label={`Mark ${dose.medication_name} as missed`}
+              aria-label={`Mark ${dose?.medication_name} as missed`}
             >
-              Mark Missed
+              {loadingStatus ? 'Saving...' : 'Mark Missed'}
             </button>
           )}
 
-          {dose.status !== 'delayed' && dose.status !== 'taken' && (
+          {currentStatus !== 'delayed' && currentStatus !== 'taken' && (
             <button
               onClick={() => handleAction('delayed')}
               disabled={disabled || loadingStatus}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors"
-              aria-label={`Mark ${dose.medication_name} as delayed`}
+              aria-label={`Mark ${dose?.medication_name} as delayed`}
             >
-              Mark Delayed
+              {loadingStatus ? 'Saving...' : 'Mark Delayed'}
             </button>
           )}
         </div>
