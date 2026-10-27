@@ -66,22 +66,3 @@ late_ratio < 0.5   → TAKE_NOW
 ```
 
 Narrow-therapeutic-index drugs (Warfarin, Digoxin, Lithium, Phenytoin, Levothyroxine) use tighter thresholds and stronger warnings.
-
-## Project Structure
-
-textbackend/modules/risk/
-├── **init**.py
-├── routes.py # FastAPI router
-├── schemas.py # Pydantic models
-├── interaction_service.py # Feature 4 – LLM interaction checker
-├── anti_stacking_service.py # Feature 7 – missed-dose engine
-└── severity_util.py # Shared severity helpers + badge styles
-
-frontend/src/
-├── api/risk.js # Thin API client
-└── components/risk/
-├── RiskPanel.jsx # Tabbed container
-├── InteractionChecker.jsx
-├── MissedDoseChecker.jsx
-├── SeverityBadge.jsx
-└── RiskPanel.css
